@@ -1,0 +1,11 @@
+//go:build gomock || generate
+
+package mocks
+
+//go:generate sh -c "go tool mockgen -typed -build_flags=\"-tags=gomock\" -package mocks -destination short_header_sealer.go github.com/quic-go/quic-go/noninternal/handshake ShortHeaderSealer"
+//go:generate sh -c "go tool mockgen -typed -build_flags=\"-tags=gomock\" -package mocks -destination short_header_opener.go github.com/quic-go/quic-go/noninternal/handshake ShortHeaderOpener"
+//go:generate sh -c "go tool mockgen -typed -build_flags=\"-tags=gomock\" -package mocks -destination long_header_opener.go github.com/quic-go/quic-go/noninternal/handshake LongHeaderOpener"
+//go:generate sh -c "go tool mockgen -typed -build_flags=\"-tags=gomock\" -package mocks -destination crypto_setup.go github.com/quic-go/quic-go/noninternal/handshake CryptoSetup"
+//go:generate sh -c "go tool mockgen -typed -build_flags=\"-tags=gomock\" -package mocks -destination stream_flow_controller.go github.com/quic-go/quic-go/noninternal/flowcontrol StreamFlowController"
+//go:generate sh -c "go tool mockgen -typed -build_flags=\"-tags=gomock\" -package mocks -destination congestion.go github.com/quic-go/quic-go/noninternal/congestion SendAlgorithmWithDebugInfos"
+//go:generate sh -c "go tool mockgen -typed -build_flags=\"-tags=gomock\" -package mockackhandler -destination ackhandler/sent_packet_handler.go github.com/quic-go/quic-go/noninternal/ackhandler SentPacketHandler"

@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/quic-go/quic-go/internal/utils"
+	"github.com/quic-go/quic-go/noninternal/utils"
 	"github.com/quic-go/quic-go/qlogwriter"
 )
 

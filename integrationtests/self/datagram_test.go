@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/quic-go/quic-go/noninternal/wire"
 	"github.com/quic-go/quic-go/testutils/simnet"
 
 	"github.com/stretchr/testify/assert"

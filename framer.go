@@ -4,12 +4,12 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/quic-go/quic-go/internal/ackhandler"
-	"github.com/quic-go/quic-go/internal/flowcontrol"
-	"github.com/quic-go/quic-go/internal/monotime"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/utils/ringbuffer"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/quic-go/quic-go/noninternal/ackhandler"
+	"github.com/quic-go/quic-go/noninternal/flowcontrol"
+	"github.com/quic-go/quic-go/noninternal/monotime"
+	"github.com/quic-go/quic-go/noninternal/protocol"
+	"github.com/quic-go/quic-go/noninternal/utils/ringbuffer"
+	"github.com/quic-go/quic-go/noninternal/wire"
 	"github.com/quic-go/quic-go/quicvarint"
 )
 

@@ -10,7 +10,7 @@ import (
 
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
-	"github.com/quic-go/quic-go/internal/qtls"
+	"github.com/quic-go/quic-go/noninternal/qtls"
 	"github.com/quic-go/quic-go/interop/http09"
 	"github.com/quic-go/quic-go/interop/utils"
 )

@@ -1,0 +1,8 @@
+{
+  "go.goroot": "/Users/mahamshakir/Projects/UdSCourses/MPI_Hiwi/go",
+  "go.alternateTools": {
+    "go": "/Users/mahamshakir/Projects/UdSCourses/MPI_Hiwi/go/bin/go"
+  },
+  "go.toolsManagement.checkForUpdates": "off",
+  "go.useLanguageServer": true
+}

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/qerr"
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/quic-go/quic-go/noninternal/protocol"
+	"github.com/quic-go/quic-go/noninternal/qerr"
+	"github.com/quic-go/quic-go/noninternal/utils"
+	"github.com/quic-go/quic-go/noninternal/wire"
 )
 
 type newConnID struct {

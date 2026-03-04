@@ -10,8 +10,8 @@ import (
 
 	"github.com/quic-go/quic-go/fuzzing/internal/helper"
 	"github.com/quic-go/quic-go/fuzzing/transportparameters"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/quic-go/quic-go/noninternal/protocol"
+	"github.com/quic-go/quic-go/noninternal/wire"
 )
 
 func getRandomData(l int) []byte {

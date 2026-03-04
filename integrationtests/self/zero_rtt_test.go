@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/quic-go/quic-go/noninternal/protocol"
+	"github.com/quic-go/quic-go/noninternal/wire"
 	"github.com/quic-go/quic-go/qlog"
 	"github.com/quic-go/quic-go/qlogwriter"
 	"github.com/quic-go/quic-go/testutils/simnet"
@@ -970,8 +970,8 @@ func Test0RTTWithSessionTicketData(t *testing.T) {
 
 			clientTLSConf := dialAndReceiveTicket(t, ln, clientConn, nil)
 			stateChan := make(chan *tls.SessionState, 1)
-			tlsConf.UnwrapSession = func(identity []byte, cs tls.ConnectionState) (*tls.SessionState, error) {
-				state, err := tlsConf.DecryptTicket(identity, cs)
+			tlsConf.UnwrapSession = func(identity []byte, cs tls.ConnectionState, conn *tls.Conn) (*tls.SessionState, error) {
+				state, err := tlsConf.DecryptTicket(identity, cs, conn)
 				if err != nil {
 					panic("failed to decrypt ticket")
 				}

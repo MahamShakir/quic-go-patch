@@ -8,11 +8,11 @@ import (
 
 	fuzzhandshake "github.com/quic-go/quic-go/fuzzing/handshake"
 	"github.com/quic-go/quic-go/fuzzing/internal/helper"
-	"github.com/quic-go/quic-go/internal/handshake"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/testdata"
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/quic-go/quic-go/noninternal/handshake"
+	"github.com/quic-go/quic-go/noninternal/protocol"
+	"github.com/quic-go/quic-go/noninternal/testdata"
+	"github.com/quic-go/quic-go/noninternal/utils"
+	"github.com/quic-go/quic-go/noninternal/wire"
 )
 
 const alpn = "fuzz"

@@ -47,7 +47,7 @@ var _ QUICListener = &quic.EarlyListener{}
 func ConfigureTLSConfig(tlsConf *tls.Config) *tls.Config {
 	// Workaround for https://github.com/golang/go/issues/60506.
 	// This initializes the session tickets _before_ cloning the config.
-	_, _ = tlsConf.DecryptTicket(nil, tls.ConnectionState{})
+	_, _ = tlsConf.DecryptTicket(nil, tls.ConnectionState{}, &tls.Conn{})
 	config := tlsConf.Clone()
 	config.NextProtos = []string{NextProtoH3}
 	if gfc := config.GetConfigForClient; gfc != nil {

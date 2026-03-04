@@ -12,9 +12,9 @@ package quic
 import (
 	reflect "reflect"
 
-	monotime "github.com/quic-go/quic-go/internal/monotime"
-	protocol "github.com/quic-go/quic-go/internal/protocol"
-	wire "github.com/quic-go/quic-go/internal/wire"
+	monotime "github.com/quic-go/quic-go/noninternal/monotime"
+	protocol "github.com/quic-go/quic-go/noninternal/protocol"
+	wire "github.com/quic-go/quic-go/noninternal/wire"
 	gomock "go.uber.org/mock/gomock"
 )
 

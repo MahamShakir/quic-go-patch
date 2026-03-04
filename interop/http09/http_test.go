@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/internal/testdata"
+	"github.com/quic-go/quic-go/noninternal/testdata"
 
 	"github.com/stretchr/testify/require"
 )

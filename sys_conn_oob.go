@@ -18,9 +18,9 @@ import (
 	"golang.org/x/net/ipv6"
 	"golang.org/x/sys/unix"
 
-	"github.com/quic-go/quic-go/internal/monotime"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/utils"
+	"github.com/quic-go/quic-go/noninternal/monotime"
+	"github.com/quic-go/quic-go/noninternal/protocol"
+	"github.com/quic-go/quic-go/noninternal/utils"
 )
 
 const (
@@ -29,7 +29,7 @@ const (
 )
 
 // Contrary to what the naming suggests, the ipv{4,6}.Message is not dependent on the IP version.
-// They're both just aliases for x/net/internal/socket.Message.
+// They're both just aliases for x/net/noninternal/socket.Message.
 // This means we can use this struct to read from a socket that receives both IPv4 and IPv6 messages.
 var _ ipv4.Message = ipv6.Message{}
 

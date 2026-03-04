@@ -12,7 +12,7 @@ import (
 
 	"github.com/quic-go/quic-go"
 	quicproxy "github.com/quic-go/quic-go/integrationtests/tools/proxy"
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/quic-go/quic-go/noninternal/protocol"
 	"github.com/quic-go/quic-go/qlog"
 	"github.com/quic-go/quic-go/testutils/events"
 

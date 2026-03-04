@@ -6,9 +6,9 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/qerr"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/quic-go/quic-go/noninternal/protocol"
+	"github.com/quic-go/quic-go/noninternal/qerr"
+	"github.com/quic-go/quic-go/noninternal/wire"
 )
 
 type outgoingStream interface {

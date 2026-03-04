@@ -8,8 +8,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/handshake"
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/quic-go/quic-go/noninternal/handshake"
+	"github.com/quic-go/quic-go/noninternal/protocol"
 	"github.com/quic-go/quic-go/qlogwriter"
 )
 
