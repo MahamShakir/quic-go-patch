@@ -3,7 +3,7 @@ package congestion
 import (
 	"time"
 
-	"github.com/quic-go/quic-go/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
 )
 
 // Note(pwestin): the magic clamping numbers come from the original code in

@@ -8,9 +8,10 @@ import (
 	"slices"
 	"time"
 
-	"github.com/quic-go/quic-go/noninternal/handshake"
-	"github.com/quic-go/quic-go/noninternal/protocol"
-	"github.com/quic-go/quic-go/qlogwriter"
+	"github.com/MahamShakir/quic-go-patch/noninternal/handshake"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/wire"
+	"github.com/MahamShakir/quic-go-patch/qlogwriter"
 )
 
 // The StreamID is the ID of a QUIC stream.
@@ -177,6 +178,9 @@ type Config struct {
 	EnableStreamResetPartialDelivery bool
 
 	Tracer func(ctx context.Context, isClient bool, connID ConnectionID) qlogwriter.Trace
+
+	SCID protocol.ConnectionID
+	DCID protocol.ConnectionID
 }
 
 // ClientInfo contains information about an incoming connection attempt.
@@ -212,4 +216,8 @@ type ConnectionState struct {
 	Version Version
 	// GSO says if generic segmentation offload is used.
 	GSO bool
+	// 
+	ReceivedRetry bool
+	//
+	PeerParams *wire.TransportParameters
 }

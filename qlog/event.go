@@ -5,9 +5,9 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/quic-go/quic-go/noninternal/protocol"
-	"github.com/quic-go/quic-go/noninternal/qerr"
-	"github.com/quic-go/quic-go/qlogwriter/jsontext"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/qerr"
+	"github.com/MahamShakir/quic-go-patch/qlogwriter/jsontext"
 )
 
 func milliseconds(dur time.Duration) float64 { return float64(dur.Nanoseconds()) / 1e6 }

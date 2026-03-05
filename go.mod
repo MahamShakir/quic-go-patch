@@ -1,4 +1,4 @@
-module github.com/quic-go/quic-go
+module github.com/MahamShakir/quic-go-patch
 
 go 1.26
 

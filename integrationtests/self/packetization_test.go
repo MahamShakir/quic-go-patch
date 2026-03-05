@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/quic-go"
-	quicproxy "github.com/quic-go/quic-go/integrationtests/tools/proxy"
-	"github.com/quic-go/quic-go/noninternal/protocol"
-	"github.com/quic-go/quic-go/qlog"
-	"github.com/quic-go/quic-go/qlogwriter"
-	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/MahamShakir/quic-go-patch"
+	quicproxy "github.com/MahamShakir/quic-go-patch/integrationtests/tools/proxy"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/qlog"
+	"github.com/MahamShakir/quic-go-patch/qlogwriter"
+	"github.com/MahamShakir/quic-go-patch/quicvarint"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -4,8 +4,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/quic-go/quic-go/noninternal/monotime"
-	"github.com/quic-go/quic-go/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/monotime"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
 )
 
 const maxBurstSizePackets = 10

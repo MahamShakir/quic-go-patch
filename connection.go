@@ -14,17 +14,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/quic-go/quic-go/noninternal/ackhandler"
-	"github.com/quic-go/quic-go/noninternal/flowcontrol"
-	"github.com/quic-go/quic-go/noninternal/handshake"
-	"github.com/quic-go/quic-go/noninternal/monotime"
-	"github.com/quic-go/quic-go/noninternal/protocol"
-	"github.com/quic-go/quic-go/noninternal/qerr"
-	"github.com/quic-go/quic-go/noninternal/utils"
-	"github.com/quic-go/quic-go/noninternal/utils/ringbuffer"
-	"github.com/quic-go/quic-go/noninternal/wire"
-	"github.com/quic-go/quic-go/qlog"
-	"github.com/quic-go/quic-go/qlogwriter"
+	"github.com/MahamShakir/quic-go-patch/noninternal/ackhandler"
+	"github.com/MahamShakir/quic-go-patch/noninternal/flowcontrol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/handshake"
+	"github.com/MahamShakir/quic-go-patch/noninternal/monotime"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/qerr"
+	"github.com/MahamShakir/quic-go-patch/noninternal/utils"
+	"github.com/MahamShakir/quic-go-patch/noninternal/utils/ringbuffer"
+	"github.com/MahamShakir/quic-go-patch/noninternal/wire"
+	"github.com/MahamShakir/quic-go-patch/qlog"
+	"github.com/MahamShakir/quic-go-patch/qlogwriter"
 )
 
 type unpacker interface {
@@ -341,7 +341,7 @@ var newConnection = func(
 		// different from protocol.DefaultActiveConnectionIDLimit.
 		// If set to the default value, it will be omitted from the transport parameters, which will make
 		// old quic-go versions interpret it as 0, instead of the default value of 2.
-		// See https://github.com/quic-go/quic-go/pull/3806.
+		// See https://github.com/MahamShakir/quic-go-patch/pull/3806.
 		ActiveConnectionIDLimit:   protocol.MaxActiveConnectionIDs,
 		InitialSourceConnectionID: srcConnID,
 		RetrySourceConnectionID:   retrySrcConnID,
@@ -468,7 +468,7 @@ var newClientConnection = func(
 		// different from protocol.DefaultActiveConnectionIDLimit.
 		// If set to the default value, it will be omitted from the transport parameters, which will make
 		// old quic-go versions interpret it as 0, instead of the default value of 2.
-		// See https://github.com/quic-go/quic-go/pull/3806.
+		// See https://github.com/MahamShakir/quic-go-patch/pull/3806.
 		ActiveConnectionIDLimit:   protocol.MaxActiveConnectionIDs,
 		InitialSourceConnectionID: srcConnID,
 		EnableResetStreamAt:       conf.EnableStreamResetPartialDelivery,
@@ -785,6 +785,8 @@ func (c *Conn) ConnectionState() ConnectionState {
 	c.connState.SupportsDatagrams.Local = c.config.EnableDatagrams
 	c.connState.SupportsStreamResetPartialDelivery.Local = c.config.EnableStreamResetPartialDelivery
 	c.connState.GSO = c.conn.capabilities().GSO
+	c.connState.ReceivedRetry = c.receivedRetry
+	c.connState.PeerParams = c.peerParams
 	return c.connState
 }
 

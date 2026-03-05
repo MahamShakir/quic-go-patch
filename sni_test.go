@@ -10,8 +10,8 @@ import (
 	mrand "math/rand/v2"
 	"testing"
 
-	"github.com/quic-go/quic-go/noninternal/protocol"
-	"github.com/quic-go/quic-go/noninternal/testdata"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/testdata"
 	"golang.org/x/crypto/cryptobyte"
 
 	"github.com/stretchr/testify/assert"

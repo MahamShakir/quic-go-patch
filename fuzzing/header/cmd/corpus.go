@@ -5,10 +5,10 @@ import (
 	"log"
 	mrand "math/rand/v2"
 
-	"github.com/quic-go/quic-go/fuzzing/header"
-	"github.com/quic-go/quic-go/fuzzing/internal/helper"
-	"github.com/quic-go/quic-go/noninternal/protocol"
-	"github.com/quic-go/quic-go/noninternal/wire"
+	"github.com/MahamShakir/quic-go-patch/fuzzing/header"
+	"github.com/MahamShakir/quic-go-patch/fuzzing/internal/helper"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/wire"
 )
 
 const version = protocol.Version1

@@ -1,6 +1,7 @@
 package quicvarint
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -75,6 +76,24 @@ func Read(r io.ByteReader) (uint64, error) {
 		return 0, err
 	}
 	return uint64(b8) + uint64(b7)<<8 + uint64(b6)<<16 + uint64(b5)<<24 + uint64(b4)<<32 + uint64(b3)<<40 + uint64(b2)<<48 + uint64(b1)<<56, nil
+}
+
+// Write writes a number in the QUIC varint format
+func Write(b *bytes.Buffer, i uint64) {
+	if i <= maxVarInt1 {
+		b.WriteByte(uint8(i))
+	} else if i <= maxVarInt2 {
+		b.Write([]byte{uint8(i>>8) | 0x40, uint8(i)})
+	} else if i <= maxVarInt4 {
+		b.Write([]byte{uint8(i>>24) | 0x80, uint8(i >> 16), uint8(i >> 8), uint8(i)})
+	} else if i <= maxVarInt8 {
+		b.Write([]byte{
+			uint8(i>>56) | 0xc0, uint8(i >> 48), uint8(i >> 40), uint8(i >> 32),
+			uint8(i >> 24), uint8(i >> 16), uint8(i >> 8), uint8(i),
+		})
+	} else {
+		panic(fmt.Sprintf("%#x doesn't fit into 62 bits", i))
+	}
 }
 
 // Parse reads a number in the QUIC varint format.

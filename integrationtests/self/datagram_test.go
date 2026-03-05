@@ -10,9 +10,9 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/noninternal/wire"
-	"github.com/quic-go/quic-go/testutils/simnet"
+	"github.com/MahamShakir/quic-go-patch"
+	"github.com/MahamShakir/quic-go-patch/noninternal/wire"
+	"github.com/MahamShakir/quic-go-patch/testutils/simnet"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

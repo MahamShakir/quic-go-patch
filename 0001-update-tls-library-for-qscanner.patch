@@ -1,0 +1,1092 @@
+From 1dc64462f46c8a5188bcbda0ad449d8348532b7e Mon Sep 17 00:00:00 2001
+From: Maham Shakir <maham.shakir6@gmail.com>
+Date: Wed, 4 Mar 2026 06:22:06 +0100
+Subject: [PATCH] update tls library for qscanner
+
+---
+ .vscode/settings.json                     |   8 +
+ activate-patch.sh                         |   3 +
+ src/crypto/tls/alert.go                   |   3 +
+ src/crypto/tls/common.go                  |  30 +++-
+ src/crypto/tls/conn.go                    |  53 ++++++-
+ src/crypto/tls/defaults.go                |  18 +--
+ src/crypto/tls/ech.go                     |   6 +-
+ src/crypto/tls/handshake_client.go        |  24 +--
+ src/crypto/tls/handshake_client_test.go   |   4 +-
+ src/crypto/tls/handshake_client_tls13.go  |   1 +
+ src/crypto/tls/handshake_messages.go      | 174 +++++++++++++++++++---
+ src/crypto/tls/handshake_messages_test.go |  21 ++-
+ src/crypto/tls/handshake_server.go        |  18 +--
+ src/crypto/tls/handshake_server_test.go   |   2 +-
+ src/crypto/tls/handshake_server_tls13.go  |   6 +-
+ src/crypto/tls/ticket.go                  |   8 +-
+ src/crypto/tls/tls.go                     |   7 +-
+ src/crypto/tls/tls_test.go                |   4 +-
+ 18 files changed, 281 insertions(+), 109 deletions(-)
+ create mode 100644 .vscode/settings.json
+ create mode 100644 activate-patch.sh
+
+diff --git a/.vscode/settings.json b/.vscode/settings.json
+new file mode 100644
+index 0000000000..f44e424b07
+--- /dev/null
++++ b/.vscode/settings.json
+@@ -0,0 +1,8 @@
++{
++  "go.goroot": "/Users/mahamshakir/Projects/UdSCourses/MPI_Hiwi/go",
++  "go.alternateTools": {
++    "go": "/Users/mahamshakir/Projects/UdSCourses/MPI_Hiwi/go/bin/go"
++  },
++  "go.toolsManagement.checkForUpdates": "off",
++  "go.useLanguageServer": true
++}
+diff --git a/activate-patch.sh b/activate-patch.sh
+new file mode 100644
+index 0000000000..1c1d69a25e
+--- /dev/null
++++ b/activate-patch.sh
+@@ -0,0 +1,3 @@
++export GOROOT=/Users/mahamshakir/Projects/UdSCourses/MPI_Hiwi/go
++export PATH=$GOROOT/bin:$PATH
++echo "Now using Patched Go: $(go version)"
+\ No newline at end of file
+diff --git a/src/crypto/tls/alert.go b/src/crypto/tls/alert.go
+index 2301c0673d..506e16e5f3 100644
+--- a/src/crypto/tls/alert.go
++++ b/src/crypto/tls/alert.go
+@@ -18,6 +18,9 @@ func (e AlertError) Error() string {
+ 
+ type alert uint8
+ 
++// Alert is a TLS alert
++type Alert = alert
++
+ const (
+ 	// alert level
+ 	alertLevelWarning = 1
+diff --git a/src/crypto/tls/common.go b/src/crypto/tls/common.go
+index f6926f1aa5..d31d47b259 100644
+--- a/src/crypto/tls/common.go
++++ b/src/crypto/tls/common.go
+@@ -106,6 +106,11 @@ const (
+ 	compressionNone uint8 = 0
+ )
+ 
++type Extension struct {
++	Type uint16
++	Data []byte
++}
++
+ // TLS extension numbers
+ const (
+ 	extensionServerName              uint16 = 0
+@@ -179,6 +184,11 @@ type keyShare struct {
+ 	data  []byte
+ }
+ 
++type KeyShare struct {
++	Group CurveID
++	Data  []byte
++}
++
+ // TLS 1.3 PSK Key Exchange Modes. See RFC 8446, Section 4.2.9.
+ const (
+ 	pskModePlain uint8 = 0
+@@ -307,6 +317,17 @@ type ConnectionState struct {
+ 	// response provided by the peer for the leaf certificate, if any.
+ 	OCSPResponse []byte
+ 
++	ServerHello                 *ServerHelloMsg
++	ClientHello                 ClientHelloMsg
++	ServerExtensions            []Extension
++	ServerEncryptedExtensions   []Extension
++	ServerCertRequestExtensions []Extension
++	HelloRetryRequestExtensions []Extension
++	CertificateExtensions       []Extension
++	SendAlerts                  []Alert
++	RecvAlerts                  []Alert
++	Errors                      []error
++
+ 	// TLSUnique contains the "tls-unique" channel binding value (see RFC 5929,
+ 	// Section 3). This value will be nil for TLS 1.3 connections and for
+ 	// resumed connections that don't support Extended Master Secret (RFC 7627).
+@@ -763,7 +784,7 @@ type Config struct {
+ 	// If UnwrapSession returns an error, the connection is terminated. If it
+ 	// returns (nil, nil), the session is ignored. crypto/tls may still choose
+ 	// not to resume the returned session.
+-	UnwrapSession func(identity []byte, cs ConnectionState) (*SessionState, error)
++	UnwrapSession func(identity []byte, cs ConnectionState, conn *Conn) (*SessionState, error)
+ 
+ 	// WrapSession is called on the server to produce a session ticket/identity.
+ 	//
+@@ -1216,7 +1237,7 @@ var supportedVersions = []uint16{
+ const roleClient = true
+ const roleServer = false
+ 
+-var tls10server = godebug.New("tls10server")
++// var tls10server = godebug.New("tls10server")
+ 
+ // supportedVersions returns the list of supported TLS versions, sorted from
+ // highest to lowest (and hence also in preference order).
+@@ -1227,7 +1248,8 @@ func (c *Config) supportedVersions(isClient bool) []uint16 {
+ 			continue
+ 		}
+ 		if (c == nil || c.MinVersion == 0) && v < VersionTLS12 {
+-			if isClient || tls10server.Value() != "1" {
++			// if isClient || tls10server.Value() != "1" {
++			if isClient {
+ 				continue
+ 			}
+ 		}
+@@ -1645,7 +1667,7 @@ func (c *Certificate) leaf() (*x509.Certificate, error) {
+ 
+ type handshakeMessage interface {
+ 	marshal() ([]byte, error)
+-	unmarshal([]byte) bool
++	unmarshal([]byte, *Conn) bool
+ }
+ 
+ type handshakeMessageWithOriginalBytes interface {
+diff --git a/src/crypto/tls/conn.go b/src/crypto/tls/conn.go
+index 9c662ef8f6..57cf33451d 100644
+--- a/src/crypto/tls/conn.go
++++ b/src/crypto/tls/conn.go
+@@ -15,7 +15,6 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"hash"
+-	"internal/godebug"
+ 	"io"
+ 	"net"
+ 	"sync"
+@@ -121,6 +120,20 @@ type Conn struct {
+ 	activeCall atomic.Int32
+ 
+ 	tmp [16]byte
++
++	serverHello *serverHelloMsg
++	clientHello *clientHelloMsg
++
++	serverExtensions            []Extension
++	serverEncryptedExtensions   []Extension
++	serverCertRequestExtensions []Extension
++	helloRetryRequestExtensions []Extension
++	certificateExtensions       []Extension
++
++	sendAlerts []alert
++	recvAlerts []alert
++
++	errors []error
+ }
+ 
+ // Access to net.Conn methods.
+@@ -1178,7 +1191,7 @@ func (c *Conn) unmarshalHandshakeMessage(data []byte, transcript transcriptHash)
+ 	// so pass in a fresh copy that won't be overwritten.
+ 	data = append([]byte(nil), data...)
+ 
+-	if !m.unmarshal(data) {
++	if !m.unmarshal(data, c) {
+ 		return nil, c.in.setErrorLocked(c.sendAlert(alertDecodeError))
+ 	}
+ 
+@@ -1611,7 +1624,7 @@ func (c *Conn) ConnectionState() ConnectionState {
+ 	return c.connectionStateLocked()
+ }
+ 
+-var tlsunsafeekm = godebug.New("tlsunsafeekm")
++// var tlsunsafeekm = godebug.New("tlsunsafeekm")
+ 
+ func (c *Conn) connectionStateLocked() ConnectionState {
+ 	var state ConnectionState
+@@ -1640,19 +1653,45 @@ func (c *Conn) connectionStateLocked() ConnectionState {
+ 		state.ekm = noEKMBecauseRenegotiation
+ 	} else if c.vers != VersionTLS13 && !c.extMasterSecret {
+ 		state.ekm = func(label string, context []byte, length int) ([]byte, error) {
+-			if tlsunsafeekm.Value() == "1" {
+-				tlsunsafeekm.IncNonDefault()
+-				return c.ekm(label, context, length)
+-			}
++			// if tlsunsafeekm.Value() == "1" {
++			// 	tlsunsafeekm.IncNonDefault()
++			// 	return c.ekm(label, context, length)
++			// }
+ 			return noEKMBecauseNoEMS(label, context, length)
+ 		}
+ 	} else {
+ 		state.ekm = c.ekm
+ 	}
++
++	// TLS analysis
++	if c.serverHello != nil {
++		newHello := NewServerHelloMsg(c.serverHello)
++		state.ServerHello = &newHello
++	}
++	state.ServerExtensions = c.serverExtensions
++	state.ServerEncryptedExtensions = c.serverEncryptedExtensions
++	state.ServerCertRequestExtensions = c.serverCertRequestExtensions
++	state.HelloRetryRequestExtensions = c.helloRetryRequestExtensions
++	state.CertificateExtensions = c.certificateExtensions
++	state.ClientHello = NewClientHelloMsg(c.clientHello)
++	state.SendAlerts = parseAlerts(c.sendAlerts)
++	state.RecvAlerts = parseAlerts(c.recvAlerts)
++	state.Errors = c.errors
++
++
+ 	state.ECHAccepted = c.echAccepted
+ 	return state
+ }
+ 
++func parseAlerts(alerts []alert) []Alert {
++	result := make([]Alert, len(alerts))
++	for i := range alerts {
++		result[i] = Alert(alerts[i])
++	}
++	return result
++}
++
++
+ // OCSPResponse returns the stapled OCSP response from the TLS server, if
+ // any. (Only valid for client connections.)
+ func (c *Conn) OCSPResponse() []byte {
+diff --git a/src/crypto/tls/defaults.go b/src/crypto/tls/defaults.go
+index 8de8d7e093..91a7ad7224 100644
+--- a/src/crypto/tls/defaults.go
++++ b/src/crypto/tls/defaults.go
+@@ -5,7 +5,7 @@
+ package tls
+ 
+ import (
+-	"internal/godebug"
++	"os"
+ 	"slices"
+ 	_ "unsafe" // for linkname
+ )
+@@ -13,18 +13,18 @@ import (
+ // Defaults are collected in this file to allow distributions to more easily patch
+ // them to apply local policies.
+ 
+-var tlsmlkem = godebug.New("tlsmlkem")
+-var tlssecpmlkem = godebug.New("tlssecpmlkem")
++// var tlsmlkem = godebug.New("tlsmlkem")
++// var tlssecpmlkem = godebug.New("tlssecpmlkem")
+ 
+ // defaultCurvePreferences is the default set of supported key exchanges, as
+ // well as the preference order.
+ func defaultCurvePreferences() []CurveID {
+ 	switch {
+ 	// tlsmlkem=0 restores the pre-Go 1.24 default.
+-	case tlsmlkem.Value() == "0":
++	case os.Getenv("GODEBUG") == "tlsmlkem=0":
+ 		return []CurveID{X25519, CurveP256, CurveP384, CurveP521}
+ 	// tlssecpmlkem=0 restores the pre-Go 1.26 default.
+-	case tlssecpmlkem.Value() == "0":
++	case os.Getenv("GODEBUG") == "tlssecpmlkem=0":
+ 		return []CurveID{X25519MLKEM768, X25519, CurveP256, CurveP384, CurveP521}
+ 	default:
+ 		return []CurveID{
+@@ -55,8 +55,8 @@ func defaultSupportedSignatureAlgorithms() []SignatureScheme {
+ 	}
+ }
+ 
+-var tlsrsakex = godebug.New("tlsrsakex")
+-var tls3des = godebug.New("tls3des")
++var tlsrsakex = false
++var tls3des = false
+ 
+ func supportedCipherSuites(aesGCMPreferred bool) []uint16 {
+ 	if aesGCMPreferred {
+@@ -70,8 +70,8 @@ func defaultCipherSuites(aesGCMPreferred bool) []uint16 {
+ 	cipherSuites := supportedCipherSuites(aesGCMPreferred)
+ 	return slices.DeleteFunc(cipherSuites, func(c uint16) bool {
+ 		return disabledCipherSuites[c] ||
+-			tlsrsakex.Value() != "1" && rsaKexCiphers[c] ||
+-			tls3des.Value() != "1" && tdesCiphers[c]
++			!tlsrsakex && rsaKexCiphers[c] ||
++			!tls3des && tdesCiphers[c]
+ 	})
+ }
+ 
+diff --git a/src/crypto/tls/ech.go b/src/crypto/tls/ech.go
+index adeff9e050..f6488e5ad6 100644
+--- a/src/crypto/tls/ech.go
++++ b/src/crypto/tls/ech.go
+@@ -259,7 +259,7 @@ func extractRawExtensions(hello *clientHelloMsg) ([]rawExtension, error) {
+ 	return rawExtensions, nil
+ }
+ 
+-func decodeInnerClientHello(outer *clientHelloMsg, encoded []byte) (*clientHelloMsg, error) {
++func decodeInnerClientHello(outer *clientHelloMsg, encoded []byte, conn *Conn) (*clientHelloMsg, error) {
+ 	// Reconstructing the inner client hello from its encoded form is somewhat
+ 	// complicated. It is missing its header (message type and length), session
+ 	// ID, and the extensions may be compressed. Since we need to put the
+@@ -361,7 +361,7 @@ func decodeInnerClientHello(outer *clientHelloMsg, encoded []byte) (*clientHello
+ 		return nil, err
+ 	}
+ 	inner := &clientHelloMsg{}
+-	if !inner.unmarshal(reconBytes) {
++	if !inner.unmarshal(reconBytes, conn) {
+ 		return nil, errors.New("tls: invalid reconstructed inner client hello")
+ 	}
+ 
+@@ -613,7 +613,7 @@ func (c *Conn) processECHClientHello(outer *clientHelloMsg, echKeys []EncryptedC
+ 		// encrypt the payload. This is only a MAY in the spec, so we're not
+ 		// doing anything revolutionary.
+ 
+-		echInner, err := decodeInnerClientHello(outer, encodedInner)
++		echInner, err := decodeInnerClientHello(outer, encodedInner, c)
+ 		if err != nil {
+ 			c.sendAlert(alertIllegalParameter)
+ 			return nil, nil, errInvalidECHExt
+diff --git a/src/crypto/tls/handshake_client.go b/src/crypto/tls/handshake_client.go
+index 7d4bd5bcce..b3289cddd2 100644
+--- a/src/crypto/tls/handshake_client.go
++++ b/src/crypto/tls/handshake_client.go
+@@ -19,11 +19,9 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"hash"
+-	"internal/godebug"
+ 	"io"
+ 	"net"
+ 	"slices"
+-	"strconv"
+ 	"strings"
+ 	"time"
+ )
+@@ -302,7 +300,10 @@ func (c *Conn) clientHandshake(ctx context.Context) (err error) {
+ 		return err
+ 	}
+ 
++	c.clientHello = hello
++
+ 	serverHello, ok := msg.(*serverHelloMsg)
++	c.serverHello = serverHello
+ 	if !ok {
+ 		c.sendAlert(alertUnexpectedMessage)
+ 		return unexpectedMessageError(serverHello, msg)
+@@ -626,15 +627,6 @@ func (hs *clientHandshakeState) pickCipherSuite() error {
+ 		return errors.New("tls: server chose an unconfigured cipher suite")
+ 	}
+ 
+-	if hs.c.config.CipherSuites == nil && !fips140tls.Required() && rsaKexCiphers[hs.suite.id] {
+-		tlsrsakex.Value() // ensure godebug is initialized
+-		tlsrsakex.IncNonDefault()
+-	}
+-	if hs.c.config.CipherSuites == nil && !fips140tls.Required() && tdesCiphers[hs.suite.id] {
+-		tls3des.Value() // ensure godebug is initialized
+-		tls3des.IncNonDefault()
+-	}
+-
+ 	hs.c.cipherSuite = hs.suite.id
+ 	return nil
+ }
+@@ -1080,17 +1072,7 @@ func (hs *clientHandshakeState) sendFinished(out []byte) error {
+ // to verify the signatures of during a TLS handshake.
+ const defaultMaxRSAKeySize = 8192
+ 
+-var tlsmaxrsasize = godebug.New("tlsmaxrsasize")
+-
+ func checkKeySize(n int) (max int, ok bool) {
+-	if v := tlsmaxrsasize.Value(); v != "" {
+-		if max, err := strconv.Atoi(v); err == nil {
+-			if (n <= max) != (n <= defaultMaxRSAKeySize) {
+-				tlsmaxrsasize.IncNonDefault()
+-			}
+-			return max, n <= max
+-		}
+-	}
+ 	return defaultMaxRSAKeySize, n <= defaultMaxRSAKeySize
+ }
+ 
+diff --git a/src/crypto/tls/handshake_client_test.go b/src/crypto/tls/handshake_client_test.go
+index e7de0b5911..59c6cd9c6b 100644
+--- a/src/crypto/tls/handshake_client_test.go
++++ b/src/crypto/tls/handshake_client_test.go
+@@ -1067,7 +1067,7 @@ func (c *serializingClientCache) Get(sessionKey string) (session *ClientSessionS
+ 	if c.ticket == nil {
+ 		return nil, false
+ 	}
+-	state, err := ParseSessionState(c.state)
++	state, err := ParseSessionState(c.state, &Conn{})
+ 	if err != nil {
+ 		c.t.Error(err)
+ 		return nil, false
+@@ -1501,7 +1501,7 @@ func TestHostnameInSNI(t *testing.T) {
+ 		s.Close()
+ 
+ 		var m clientHelloMsg
+-		if !m.unmarshal(record) {
++		if !m.unmarshal(record, nil) {
+ 			t.Errorf("unmarshaling ClientHello for %q failed", tt.in)
+ 			continue
+ 		}
+diff --git a/src/crypto/tls/handshake_client_tls13.go b/src/crypto/tls/handshake_client_tls13.go
+index 77a24b4a78..67781f60dd 100644
+--- a/src/crypto/tls/handshake_client_tls13.go
++++ b/src/crypto/tls/handshake_client_tls13.go
+@@ -398,6 +398,7 @@ func (hs *clientHandshakeStateTLS13) processHelloRetryRequest() error {
+ 		c.sendAlert(alertUnexpectedMessage)
+ 		return unexpectedMessageError(serverHello, msg)
+ 	}
++	hs.c.serverHello = serverHello
+ 	hs.serverHello = serverHello
+ 
+ 	if err := hs.checkServerHelloOrHRR(); err != nil {
+diff --git a/src/crypto/tls/handshake_messages.go b/src/crypto/tls/handshake_messages.go
+index aa0b7db75d..b078dc423f 100644
+--- a/src/crypto/tls/handshake_messages.go
++++ b/src/crypto/tls/handshake_messages.go
+@@ -101,6 +101,76 @@ type clientHelloMsg struct {
+ 	extensions []uint16
+ }
+ 
++type ClientHelloMsg struct {
++	Vers                             uint16
++	Random                           []byte
++	SessionId                        []byte
++	CipherSuites                     []uint16
++	CompressionMethods               []uint8
++	ServerName                       string
++	OcspStapling                     bool
++	SupportedCurves                  []CurveID
++	SupportedPoints                  []uint8
++	TicketSupported                  bool
++	SessionTicket                    []uint8
++	SupportedSignatureAlgorithms     []SignatureScheme
++	SupportedSignatureAlgorithmsCert []SignatureScheme
++	SecureRenegotiationSupported     bool
++	SecureRenegotiation              []byte
++	AlpnProtocols                    []string
++	Scts                             bool
++	SupportedVersions                []uint16
++	Cookie                           []byte
++	KeyShares                        []KeyShare
++	EarlyData                        bool
++	PskModes                         []uint8
++	PskIdentities                    []pskIdentity
++	PskBinders                       [][]byte
++}
++
++func NewClientHelloMsg(m *clientHelloMsg) ClientHelloMsg {
++	if m == nil {
++		return ClientHelloMsg{}
++	}
++	return ClientHelloMsg{
++		Vers:                             m.vers,
++		Random:                           m.random,
++		SessionId:                        m.sessionId,
++		CipherSuites:                     m.cipherSuites,
++		CompressionMethods:               m.compressionMethods,
++		ServerName:                       m.serverName,
++		OcspStapling:                     m.ocspStapling,
++		SupportedCurves:                  m.supportedCurves,
++		SupportedPoints:                  m.supportedPoints,
++		TicketSupported:                  m.ticketSupported,
++		SessionTicket:                    m.sessionTicket,
++		SupportedSignatureAlgorithms:     m.supportedSignatureAlgorithms,
++		SupportedSignatureAlgorithmsCert: m.supportedSignatureAlgorithmsCert,
++		SecureRenegotiationSupported:     m.secureRenegotiationSupported,
++		SecureRenegotiation:              m.secureRenegotiation,
++		AlpnProtocols:                    m.alpnProtocols,
++		Scts:                             m.scts,
++		SupportedVersions:                m.supportedVersions,
++		Cookie:                           m.cookie,
++		KeyShares:                        exportKeyshare(m.keyShares),
++		EarlyData:                        m.earlyData,
++		PskModes:                         m.pskModes,
++		PskIdentities:                    m.pskIdentities,
++		PskBinders:                       m.pskBinders,
++	}
++}
++func exportKeyshare(k []keyShare) []KeyShare {
++	var array []KeyShare
++	for _, val := range k {
++		array = append(array, KeyShare{
++			Group: val.group,
++			Data:  val.data,
++		})
++	}
++	return array
++}
++
++
+ func (m *clientHelloMsg) marshalMsg(echInner bool) ([]byte, error) {
+ 	var exts cryptobyte.Builder
+ 	if len(m.serverName) > 0 {
+@@ -415,7 +485,7 @@ func (m *clientHelloMsg) updateBinders(pskBinders [][]byte) error {
+ 	return nil
+ }
+ 
+-func (m *clientHelloMsg) unmarshal(data []byte) bool {
++func (m *clientHelloMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	*m = clientHelloMsg{original: data}
+ 	s := cryptobyte.String(data)
+ 
+@@ -743,6 +813,58 @@ type serverHelloMsg struct {
+ 	selectedGroup CurveID
+ }
+ 
++type ServerHelloMsg struct {
++	Vers                         uint16
++	Random                       []byte
++	SessionId                    []byte
++	CipherSuite                  uint16
++	CompressionMethod            uint8
++	OcspStapling                 bool
++	TicketSupported              bool
++	SecureRenegotiationSupported bool
++	SecureRenegotiation          []byte
++	AlpnProtocol                 string
++	Scts                         [][]byte
++	SupportedVersion             uint16
++	ServerShare                  KeyShare
++	SelectedIdentityPresent      bool
++	SelectedIdentity             uint16
++	SupportedPoints              []uint8
++
++	// HelloRetryRequest extensions
++	Cookie        []byte
++	SelectedGroup CurveID
++}
++
++func NewServerHelloMsg(m *serverHelloMsg) ServerHelloMsg {
++	if m == nil {
++		return ServerHelloMsg{}
++	}
++	return ServerHelloMsg{
++		Vers:                         m.vers,
++		Random:                       m.random,
++		SessionId:                    m.sessionId,
++		CipherSuite:                  m.cipherSuite,
++		CompressionMethod:            m.compressionMethod,
++		OcspStapling:                 m.ocspStapling,
++		TicketSupported:              m.ticketSupported,
++		SecureRenegotiationSupported: m.secureRenegotiationSupported,
++		SecureRenegotiation:          m.secureRenegotiation,
++		AlpnProtocol:                 m.alpnProtocol,
++		Scts:                         m.scts,
++		SupportedVersion:             m.supportedVersion,
++		ServerShare: KeyShare{
++			Group: m.serverShare.group,
++			Data:  m.serverShare.data,
++		},
++		SelectedIdentityPresent: m.selectedIdentityPresent,
++		SelectedIdentity:        m.selectedIdentity,
++		SupportedPoints:         m.supportedPoints,
++		Cookie:                  m.cookie,
++		SelectedGroup:           m.selectedGroup,
++	}
++}
++
+ func (m *serverHelloMsg) marshal() ([]byte, error) {
+ 	var exts cryptobyte.Builder
+ 	if m.ocspStapling {
+@@ -868,7 +990,7 @@ func (m *serverHelloMsg) marshal() ([]byte, error) {
+ 	return b.Bytes()
+ }
+ 
+-func (m *serverHelloMsg) unmarshal(data []byte) bool {
++func (m *serverHelloMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	*m = serverHelloMsg{original: data}
+ 	s := cryptobyte.String(data)
+ 
+@@ -1051,7 +1173,7 @@ func (m *encryptedExtensionsMsg) marshal() ([]byte, error) {
+ 	return b.Bytes()
+ }
+ 
+-func (m *encryptedExtensionsMsg) unmarshal(data []byte) bool {
++func (m *encryptedExtensionsMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	*m = encryptedExtensionsMsg{}
+ 	s := cryptobyte.String(data)
+ 
+@@ -1061,6 +1183,8 @@ func (m *encryptedExtensionsMsg) unmarshal(data []byte) bool {
+ 		return false
+ 	}
+ 
++	conn.serverEncryptedExtensions = make([]Extension, 0)
++
+ 	seenExts := make(map[uint16]bool)
+ 	for !extensions.Empty() {
+ 		var extension uint16
+@@ -1070,6 +1194,9 @@ func (m *encryptedExtensionsMsg) unmarshal(data []byte) bool {
+ 			return false
+ 		}
+ 
++		// Here we have the Extension and Data before unknown ones are discarded
++		conn.serverEncryptedExtensions = append(conn.serverEncryptedExtensions, Extension{Type: extension, Data: extData})
++
+ 		if seenExts[extension] {
+ 			return false
+ 		}
+@@ -1126,7 +1253,7 @@ func (m *endOfEarlyDataMsg) marshal() ([]byte, error) {
+ 	return x, nil
+ }
+ 
+-func (m *endOfEarlyDataMsg) unmarshal(data []byte) bool {
++func (m *endOfEarlyDataMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	return len(data) == 4
+ }
+ 
+@@ -1148,7 +1275,7 @@ func (m *keyUpdateMsg) marshal() ([]byte, error) {
+ 	return b.Bytes()
+ }
+ 
+-func (m *keyUpdateMsg) unmarshal(data []byte) bool {
++func (m *keyUpdateMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	s := cryptobyte.String(data)
+ 
+ 	var updateRequested uint8
+@@ -1201,7 +1328,7 @@ func (m *newSessionTicketMsgTLS13) marshal() ([]byte, error) {
+ 	return b.Bytes()
+ }
+ 
+-func (m *newSessionTicketMsgTLS13) unmarshal(data []byte) bool {
++func (m *newSessionTicketMsgTLS13) unmarshal(data []byte, conn *Conn) bool {
+ 	*m = newSessionTicketMsgTLS13{}
+ 	s := cryptobyte.String(data)
+ 
+@@ -1310,7 +1437,7 @@ func (m *certificateRequestMsgTLS13) marshal() ([]byte, error) {
+ 	return b.Bytes()
+ }
+ 
+-func (m *certificateRequestMsgTLS13) unmarshal(data []byte) bool {
++func (m *certificateRequestMsgTLS13) unmarshal(data []byte, conn *Conn) bool {
+ 	*m = certificateRequestMsgTLS13{}
+ 	s := cryptobyte.String(data)
+ 
+@@ -1322,6 +1449,8 @@ func (m *certificateRequestMsgTLS13) unmarshal(data []byte) bool {
+ 		return false
+ 	}
+ 
++	conn.serverCertRequestExtensions = make([]Extension, 0)
++
+ 	for !extensions.Empty() {
+ 		var extension uint16
+ 		var extData cryptobyte.String
+@@ -1330,6 +1459,8 @@ func (m *certificateRequestMsgTLS13) unmarshal(data []byte) bool {
+ 			return false
+ 		}
+ 
++		conn.serverCertRequestExtensions = append(conn.serverCertRequestExtensions, Extension{Type: extension, Data: extData})
++
+ 		switch extension {
+ 		case extensionStatusRequest:
+ 			m.ocspStapling = true
+@@ -1420,7 +1551,7 @@ func (m *certificateMsg) marshal() ([]byte, error) {
+ 	return x, nil
+ }
+ 
+-func (m *certificateMsg) unmarshal(data []byte) bool {
++func (m *certificateMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	if len(data) < 7 {
+ 		return false
+ 	}
+@@ -1518,14 +1649,14 @@ func marshalCertificate(b *cryptobyte.Builder, certificate Certificate) {
+ 	})
+ }
+ 
+-func (m *certificateMsgTLS13) unmarshal(data []byte) bool {
++func (m *certificateMsgTLS13) unmarshal(data []byte, conn *Conn) bool {
+ 	*m = certificateMsgTLS13{}
+ 	s := cryptobyte.String(data)
+ 
+ 	var context cryptobyte.String
+ 	if !s.Skip(4) || // message type and uint24 length field
+ 		!s.ReadUint8LengthPrefixed(&context) || !context.Empty() ||
+-		!unmarshalCertificate(&s, &m.certificate) ||
++		!unmarshalCertificate(&s, &m.certificate, conn) ||
+ 		!s.Empty() {
+ 		return false
+ 	}
+@@ -1536,7 +1667,7 @@ func (m *certificateMsgTLS13) unmarshal(data []byte) bool {
+ 	return true
+ }
+ 
+-func unmarshalCertificate(s *cryptobyte.String, certificate *Certificate) bool {
++func unmarshalCertificate(s *cryptobyte.String, certificate *Certificate, conn *Conn) bool {
+ 	var certList cryptobyte.String
+ 	if !s.ReadUint24LengthPrefixed(&certList) {
+ 		return false
+@@ -1549,6 +1680,7 @@ func unmarshalCertificate(s *cryptobyte.String, certificate *Certificate) bool {
+ 			return false
+ 		}
+ 		certificate.Certificate = append(certificate.Certificate, cert)
++		conn.certificateExtensions = make([]Extension, 0)
+ 		for !extensions.Empty() {
+ 			var extension uint16
+ 			var extData cryptobyte.String
+@@ -1561,6 +1693,8 @@ func unmarshalCertificate(s *cryptobyte.String, certificate *Certificate) bool {
+ 				continue
+ 			}
+ 
++			conn.certificateExtensions = append(conn.certificateExtensions, Extension{Type: extension, Data: extData})
++
+ 			switch extension {
+ 			case extensionStatusRequest:
+ 				var statusType uint8
+@@ -1612,7 +1746,7 @@ func (m *serverKeyExchangeMsg) marshal() ([]byte, error) {
+ 	return x, nil
+ }
+ 
+-func (m *serverKeyExchangeMsg) unmarshal(data []byte) bool {
++func (m *serverKeyExchangeMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	if len(data) < 4 {
+ 		return false
+ 	}
+@@ -1637,7 +1771,7 @@ func (m *certificateStatusMsg) marshal() ([]byte, error) {
+ 	return b.Bytes()
+ }
+ 
+-func (m *certificateStatusMsg) unmarshal(data []byte) bool {
++func (m *certificateStatusMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	s := cryptobyte.String(data)
+ 
+ 	var statusType uint8
+@@ -1658,7 +1792,7 @@ func (m *serverHelloDoneMsg) marshal() ([]byte, error) {
+ 	return x, nil
+ }
+ 
+-func (m *serverHelloDoneMsg) unmarshal(data []byte) bool {
++func (m *serverHelloDoneMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	return len(data) == 4
+ }
+ 
+@@ -1678,7 +1812,7 @@ func (m *clientKeyExchangeMsg) marshal() ([]byte, error) {
+ 	return x, nil
+ }
+ 
+-func (m *clientKeyExchangeMsg) unmarshal(data []byte) bool {
++func (m *clientKeyExchangeMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	if len(data) < 4 {
+ 		return false
+ 	}
+@@ -1704,7 +1838,7 @@ func (m *finishedMsg) marshal() ([]byte, error) {
+ 	return b.Bytes()
+ }
+ 
+-func (m *finishedMsg) unmarshal(data []byte) bool {
++func (m *finishedMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	s := cryptobyte.String(data)
+ 	return s.Skip(1) &&
+ 		readUint24LengthPrefixed(&s, &m.verifyData) &&
+@@ -1771,7 +1905,7 @@ func (m *certificateRequestMsg) marshal() ([]byte, error) {
+ 	return x, nil
+ }
+ 
+-func (m *certificateRequestMsg) unmarshal(data []byte) bool {
++func (m *certificateRequestMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	if len(data) < 5 {
+ 		return false
+ 	}
+@@ -1866,7 +2000,7 @@ func (m *certificateVerifyMsg) marshal() ([]byte, error) {
+ 	return b.Bytes()
+ }
+ 
+-func (m *certificateVerifyMsg) unmarshal(data []byte) bool {
++func (m *certificateVerifyMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	s := cryptobyte.String(data)
+ 
+ 	if !s.Skip(4) { // message type and uint24 length field
+@@ -1900,7 +2034,7 @@ func (m *newSessionTicketMsg) marshal() ([]byte, error) {
+ 	return x, nil
+ }
+ 
+-func (m *newSessionTicketMsg) unmarshal(data []byte) bool {
++func (m *newSessionTicketMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	if len(data) < 10 {
+ 		return false
+ 	}
+@@ -1927,7 +2061,7 @@ func (*helloRequestMsg) marshal() ([]byte, error) {
+ 	return []byte{typeHelloRequest, 0, 0, 0}, nil
+ }
+ 
+-func (*helloRequestMsg) unmarshal(data []byte) bool {
++func (*helloRequestMsg) unmarshal(data []byte, conn *Conn) bool {
+ 	return len(data) == 4
+ }
+ 
+diff --git a/src/crypto/tls/handshake_messages_test.go b/src/crypto/tls/handshake_messages_test.go
+index fa81a72b0d..4f82303b25 100644
+--- a/src/crypto/tls/handshake_messages_test.go
++++ b/src/crypto/tls/handshake_messages_test.go
+@@ -36,7 +36,6 @@ var tests = []handshakeMessage{
+ 	&newSessionTicketMsgTLS13{},
+ 	&certificateRequestMsgTLS13{},
+ 	&certificateMsgTLS13{},
+-	&SessionState{},
+ }
+ 
+ func mustMarshal(t *testing.T, msg handshakeMessage) []byte {
+@@ -67,7 +66,7 @@ func TestMarshalUnmarshal(t *testing.T) {
+ 
+ 				m1 := v.Interface().(handshakeMessage)
+ 				marshaled := mustMarshal(t, m1)
+-				if !m.unmarshal(marshaled) {
++				if !m.unmarshal(marshaled, &Conn{}) {
+ 					t.Errorf("#%d failed to unmarshal %#v %x", i, m1, marshaled)
+ 					break
+ 				}
+@@ -108,7 +107,7 @@ func TestMarshalUnmarshal(t *testing.T) {
+ 					// data is optional and the length of the
+ 					// Finished varies across versions.
+ 					for j := 0; j < len(marshaled); j++ {
+-						if m.unmarshal(marshaled[0:j]) {
++						if m.unmarshal(marshaled[0:j], &Conn{}) {
+ 							t.Errorf("#%d unmarshaled a prefix of length %d of %#v", i, j, m1)
+ 							break
+ 						}
+@@ -126,7 +125,7 @@ func TestFuzz(t *testing.T) {
+ 			len := rand.Intn(1000)
+ 			bytes := randomBytes(len, rand)
+ 			// This just looks for crashes due to bounds errors etc.
+-			m.unmarshal(bytes)
++			m.unmarshal(bytes, nil)
+ 		}
+ 	}
+ }
+@@ -432,8 +431,8 @@ func (*SessionState) Generate(rand *rand.Rand, size int) reflect.Value {
+ }
+ 
+ func (s *SessionState) marshal() ([]byte, error) { return s.Bytes() }
+-func (s *SessionState) unmarshal(b []byte) bool {
+-	ss, err := ParseSessionState(b)
++func (s *SessionState) unmarshal(b []byte, conn *Conn) bool {
++	ss, err := ParseSessionState(b, conn)
+ 	if err != nil {
+ 		return false
+ 	}
+@@ -520,7 +519,7 @@ func TestRejectEmptySCTList(t *testing.T) {
+ 	serverHelloBytes := mustMarshal(t, serverHello)
+ 
+ 	var serverHelloCopy serverHelloMsg
+-	if !serverHelloCopy.unmarshal(serverHelloBytes) {
++	if !serverHelloCopy.unmarshal(serverHelloBytes, &Conn{}) {
+ 		t.Fatal("Failed to unmarshal initial message")
+ 	}
+ 
+@@ -545,7 +544,7 @@ func TestRejectEmptySCTList(t *testing.T) {
+ 	serverHelloEmptySCT[42] = byte((len(serverHelloEmptySCT) - 44) >> 8)
+ 	serverHelloEmptySCT[43] = byte((len(serverHelloEmptySCT) - 44))
+ 
+-	if serverHelloCopy.unmarshal(serverHelloEmptySCT) {
++	if serverHelloCopy.unmarshal(serverHelloEmptySCT, &Conn{}) {
+ 		t.Fatal("Unmarshaled ServerHello with empty SCT list")
+ 	}
+ }
+@@ -563,7 +562,7 @@ func TestRejectEmptySCT(t *testing.T) {
+ 	serverHelloBytes := mustMarshal(t, serverHello)
+ 
+ 	var serverHelloCopy serverHelloMsg
+-	if serverHelloCopy.unmarshal(serverHelloBytes) {
++	if serverHelloCopy.unmarshal(serverHelloBytes, &Conn{}) {
+ 		t.Fatal("Unmarshaled ServerHello with zero-length SCT")
+ 	}
+ }
+@@ -574,7 +573,7 @@ func TestRejectDuplicateExtensions(t *testing.T) {
+ 		t.Fatalf("failed to decode test ClientHello: %s", err)
+ 	}
+ 	var clientHelloCopy clientHelloMsg
+-	if clientHelloCopy.unmarshal(clientHelloBytes) {
++	if clientHelloCopy.unmarshal(clientHelloBytes, &Conn{}) {
+ 		t.Error("Unmarshaled ClientHello with duplicate extensions")
+ 	}
+ 
+@@ -583,7 +582,7 @@ func TestRejectDuplicateExtensions(t *testing.T) {
+ 		t.Fatalf("failed to decode test ServerHello: %s", err)
+ 	}
+ 	var serverHelloCopy serverHelloMsg
+-	if serverHelloCopy.unmarshal(serverHelloBytes) {
++	if serverHelloCopy.unmarshal(serverHelloBytes, &Conn{}) {
+ 		t.Fatal("Unmarshaled ServerHello with duplicate extensions")
+ 	}
+ }
+diff --git a/src/crypto/tls/handshake_server.go b/src/crypto/tls/handshake_server.go
+index 34dfb13b67..2f7fff39f8 100644
+--- a/src/crypto/tls/handshake_server.go
++++ b/src/crypto/tls/handshake_server.go
+@@ -208,11 +208,6 @@ func (c *Conn) readClientHello(ctx context.Context) (*clientHelloMsg, *echServer
+ 		return nil, nil, errors.New("tls: Encrypted Client Hello cannot be used pre-TLS 1.3")
+ 	}
+ 
+-	if c.config.MinVersion == 0 && c.vers < VersionTLS12 {
+-		tls10server.Value() // ensure godebug is initialized
+-		tls10server.IncNonDefault()
+-	}
+-
+ 	return clientHello, ech, nil
+ }
+ 
+@@ -406,15 +401,6 @@ func (hs *serverHandshakeState) pickCipherSuite() error {
+ 	}
+ 	c.cipherSuite = hs.suite.id
+ 
+-	if c.config.CipherSuites == nil && !fips140tls.Required() && rsaKexCiphers[hs.suite.id] {
+-		tlsrsakex.Value() // ensure godebug is initialized
+-		tlsrsakex.IncNonDefault()
+-	}
+-	if c.config.CipherSuites == nil && !fips140tls.Required() && tdesCiphers[hs.suite.id] {
+-		tls3des.Value() // ensure godebug is initialized
+-		tls3des.IncNonDefault()
+-	}
+-
+ 	for _, id := range hs.clientHello.cipherSuites {
+ 		if id == TLS_FALLBACK_SCSV {
+ 			// The client is doing a fallback connection. See RFC 7507.
+@@ -460,7 +446,7 @@ func (hs *serverHandshakeState) checkForResumption() error {
+ 
+ 	var sessionState *SessionState
+ 	if c.config.UnwrapSession != nil {
+-		ss, err := c.config.UnwrapSession(hs.clientHello.sessionTicket, c.connectionStateLocked())
++		ss, err := c.config.UnwrapSession(hs.clientHello.sessionTicket, c.connectionStateLocked(), c)
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -473,7 +459,7 @@ func (hs *serverHandshakeState) checkForResumption() error {
+ 		if plaintext == nil {
+ 			return nil
+ 		}
+-		ss, err := ParseSessionState(plaintext)
++		ss, err := ParseSessionState(plaintext, c)
+ 		if err != nil {
+ 			return nil
+ 		}
+diff --git a/src/crypto/tls/handshake_server_test.go b/src/crypto/tls/handshake_server_test.go
+index 736bb831ab..18e97216c2 100644
+--- a/src/crypto/tls/handshake_server_test.go
++++ b/src/crypto/tls/handshake_server_test.go
+@@ -256,7 +256,7 @@ func TestRenegotiationExtension(t *testing.T) {
+ 	var serverHello serverHelloMsg
+ 	// unmarshal expects to be given the handshake header, but
+ 	// serverHelloLen doesn't include it.
+-	if !serverHello.unmarshal(buf[5 : 9+serverHelloLen]) {
++	if !serverHello.unmarshal(buf[5 : 9+serverHelloLen], &Conn{}) {
+ 		t.Fatalf("Failed to parse ServerHello")
+ 	}
+ 
+diff --git a/src/crypto/tls/handshake_server_tls13.go b/src/crypto/tls/handshake_server_tls13.go
+index bce94ed2d8..bee215a44b 100644
+--- a/src/crypto/tls/handshake_server_tls13.go
++++ b/src/crypto/tls/handshake_server_tls13.go
+@@ -323,7 +323,7 @@ func (hs *serverHandshakeStateTLS13) checkForResumption() error {
+ 		var sessionState *SessionState
+ 		if c.config.UnwrapSession != nil {
+ 			var err error
+-			sessionState, err = c.config.UnwrapSession(identity.label, c.connectionStateLocked())
++			sessionState, err = c.config.UnwrapSession(identity.label, c.connectionStateLocked(), c)
+ 			if err != nil {
+ 				return err
+ 			}
+@@ -336,7 +336,7 @@ func (hs *serverHandshakeStateTLS13) checkForResumption() error {
+ 				continue
+ 			}
+ 			var err error
+-			sessionState, err = ParseSessionState(plaintext)
++			sessionState, err = ParseSessionState(plaintext, c)
+ 			if err != nil {
+ 				continue
+ 			}
+@@ -616,7 +616,7 @@ func (hs *serverHandshakeStateTLS13) doHelloRetryRequest(selectedGroup CurveID)
+ 				return nil, errors.New("tls: failed to decrypt second client hello encrypted client hello extension payload")
+ 			}
+ 
+-			echInner, err := decodeInnerClientHello(clientHello, encodedInner)
++			echInner, err := decodeInnerClientHello(clientHello, encodedInner, c)
+ 			if err != nil {
+ 				c.sendAlert(alertIllegalParameter)
+ 				return nil, errors.New("tls: client sent invalid encrypted client hello extension")
+diff --git a/src/crypto/tls/ticket.go b/src/crypto/tls/ticket.go
+index 11f7efde85..29cbd94656 100644
+--- a/src/crypto/tls/ticket.go
++++ b/src/crypto/tls/ticket.go
+@@ -184,7 +184,7 @@ func certificatesToBytesSlice(certs []*x509.Certificate) [][]byte {
+ }
+ 
+ // ParseSessionState parses a [SessionState] encoded by [SessionState.Bytes].
+-func ParseSessionState(data []byte) (*SessionState, error) {
++func ParseSessionState(data []byte, conn *Conn) (*SessionState, error) {
+ 	ss := &SessionState{}
+ 	s := cryptobyte.String(data)
+ 	var typ, extMasterSecret, earlyData uint8
+@@ -199,7 +199,7 @@ func ParseSessionState(data []byte) (*SessionState, error) {
+ 		!s.ReadUint8(&extMasterSecret) ||
+ 		!s.ReadUint8(&earlyData) ||
+ 		len(ss.secret) == 0 ||
+-		!unmarshalCertificate(&s, &cert) {
++		!unmarshalCertificate(&s, &cert, conn) {
+ 		return nil, errors.New("tls: invalid session encoding")
+ 	}
+ 	for !extra.Empty() {
+@@ -354,13 +354,13 @@ func (c *Config) encryptTicket(state []byte, ticketKeys []ticketKey) ([]byte, er
+ // be used as a [Config.UnwrapSession] implementation.
+ //
+ // If the ticket can't be decrypted or parsed, DecryptTicket returns (nil, nil).
+-func (c *Config) DecryptTicket(identity []byte, cs ConnectionState) (*SessionState, error) {
++func (c *Config) DecryptTicket(identity []byte, cs ConnectionState, conn *Conn) (*SessionState, error) {
+ 	ticketKeys := c.ticketKeys(nil)
+ 	stateBytes := c.decryptTicket(identity, ticketKeys)
+ 	if stateBytes == nil {
+ 		return nil, nil
+ 	}
+-	s, err := ParseSessionState(stateBytes)
++	s, err := ParseSessionState(stateBytes, conn)
+ 	if err != nil {
+ 		return nil, nil // drop unparsable tickets on the floor
+ 	}
+diff --git a/src/crypto/tls/tls.go b/src/crypto/tls/tls.go
+index 69f096870c..e75fc363d3 100644
+--- a/src/crypto/tls/tls.go
++++ b/src/crypto/tls/tls.go
+@@ -33,7 +33,6 @@ import (
+ 	"encoding/pem"
+ 	"errors"
+ 	"fmt"
+-	"internal/godebug"
+ 	"net"
+ 	"os"
+ 	"strings"
+@@ -255,8 +254,6 @@ func LoadX509KeyPair(certFile, keyFile string) (Certificate, error) {
+ 	return X509KeyPair(certPEMBlock, keyPEMBlock)
+ }
+ 
+-var x509keypairleaf = godebug.New("x509keypairleaf")
+-
+ // X509KeyPair parses a public/private key pair from a pair of
+ // PEM encoded data. On successful return, Certificate.Leaf will be populated.
+ //
+@@ -317,10 +314,8 @@ func X509KeyPair(certPEMBlock, keyPEMBlock []byte) (Certificate, error) {
+ 		return fail(err)
+ 	}
+ 
+-	if x509keypairleaf.Value() != "0" {
++	if os.Getenv("GODEBUG") != "x509keypairleaf=0" {
+ 		cert.Leaf = x509Cert
+-	} else {
+-		x509keypairleaf.IncNonDefault()
+ 	}
+ 
+ 	cert.PrivateKey, err = parsePrivateKey(keyDERBlock.Bytes)
+diff --git a/src/crypto/tls/tls_test.go b/src/crypto/tls/tls_test.go
+index 4513008a5f..ef17e31f33 100644
+--- a/src/crypto/tls/tls_test.go
++++ b/src/crypto/tls/tls_test.go
+@@ -874,7 +874,7 @@ func TestCloneFuncFields(t *testing.T) {
+ 			called |= 1 << 5
+ 			return nil
+ 		},
+-		UnwrapSession: func(identity []byte, cs ConnectionState) (*SessionState, error) {
++		UnwrapSession: func(identity []byte, cs ConnectionState, conn *Conn) (*SessionState, error) {
+ 			called |= 1 << 6
+ 			return nil, nil
+ 		},
+@@ -900,7 +900,7 @@ func TestCloneFuncFields(t *testing.T) {
+ 	c2.GetConfigForClient(nil)
+ 	c2.VerifyPeerCertificate(nil, nil)
+ 	c2.VerifyConnection(ConnectionState{})
+-	c2.UnwrapSession(nil, ConnectionState{})
++	c2.UnwrapSession(nil, ConnectionState{}, &Conn{})
+ 	c2.WrapSession(ConnectionState{}, nil)
+ 	c2.EncryptedClientHelloRejectionVerify(ConnectionState{})
+ 	c2.GetEncryptedClientHelloKeys(nil)
+-- 
+2.39.5 (Apple Git-154)
+

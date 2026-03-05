@@ -14,9 +14,9 @@ import (
 	"golang.org/x/net/http/httpguts"
 
 	"github.com/quic-go/qpack"
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/http3/qlog"
-	"github.com/quic-go/quic-go/qlogwriter"
+	"github.com/MahamShakir/quic-go-patch"
+	"github.com/MahamShakir/quic-go-patch/http3/qlog"
+	"github.com/MahamShakir/quic-go-patch/qlogwriter"
 )
 
 type qpackError struct{ err error }

@@ -3,8 +3,8 @@ package ackhandler
 import (
 	"sync"
 
-	"github.com/quic-go/quic-go/noninternal/monotime"
-	"github.com/quic-go/quic-go/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/monotime"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
 )
 
 type packetWithPacketNumber struct {

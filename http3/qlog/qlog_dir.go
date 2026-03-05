@@ -3,9 +3,9 @@ package qlog
 import (
 	"context"
 
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/qlog"
-	"github.com/quic-go/quic-go/qlogwriter"
+	"github.com/MahamShakir/quic-go-patch"
+	"github.com/MahamShakir/quic-go-patch/qlog"
+	"github.com/MahamShakir/quic-go-patch/qlogwriter"
 )
 
 const EventSchema = "urn:ietf:params:qlog:events:http3-12"

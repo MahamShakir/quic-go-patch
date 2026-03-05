@@ -8,11 +8,11 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/quic-go/quic-go/noninternal/protocol"
-	"github.com/quic-go/quic-go/noninternal/qerr"
-	"github.com/quic-go/quic-go/noninternal/utils"
-	"github.com/quic-go/quic-go/noninternal/wire"
-	"github.com/quic-go/quic-go/qlogwriter"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/qerr"
+	"github.com/MahamShakir/quic-go-patch/noninternal/utils"
+	"github.com/MahamShakir/quic-go-patch/noninternal/wire"
+	"github.com/MahamShakir/quic-go-patch/qlogwriter"
 
 	"github.com/stretchr/testify/require"
 )

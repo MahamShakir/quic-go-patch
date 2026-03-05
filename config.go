@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/quic-go/quic-go/noninternal/protocol"
-	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/quicvarint"
 )
 
 // Clone clones a Config.
@@ -125,5 +125,7 @@ func populateConfig(config *Config) *Config {
 		EnableStreamResetPartialDelivery: config.EnableStreamResetPartialDelivery,
 		Allow0RTT:                        config.Allow0RTT,
 		Tracer:                           config.Tracer,
+		SCID:							  config.SCID,
+		DCID:							  config.DCID,
 	}
 }

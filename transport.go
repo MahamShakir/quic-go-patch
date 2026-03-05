@@ -11,11 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/quic-go/quic-go/noninternal/protocol"
-	"github.com/quic-go/quic-go/noninternal/utils"
-	"github.com/quic-go/quic-go/noninternal/wire"
-	"github.com/quic-go/quic-go/qlog"
-	"github.com/quic-go/quic-go/qlogwriter"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/utils"
+	"github.com/MahamShakir/quic-go-patch/noninternal/wire"
+	"github.com/MahamShakir/quic-go-patch/qlog"
+	"github.com/MahamShakir/quic-go-patch/qlogwriter"
 )
 
 // ErrTransportClosed is returned by the [Transport]'s Listen or Dial method after it was closed.
@@ -274,13 +274,25 @@ func (t *Transport) doDial(
 	use0RTT bool,
 	version protocol.Version,
 ) (*Conn, error) {
-	srcConnID, err := t.connIDGenerator.GenerateConnectionID()
-	if err != nil {
-		return nil, err
+	var srcConnID, destConnID protocol.ConnectionID
+	var err error
+
+	if config.SCID.Len() > 0 {
+		srcConnID = config.SCID
+	} else {
+		srcConnID, err = t.connIDGenerator.GenerateConnectionID()
+		if err != nil {
+			return nil, err
+		}
 	}
-	destConnID, err := generateConnectionIDForInitial()
-	if err != nil {
-		return nil, err
+
+	if config.DCID.Len() > 0 {
+		destConnID = config.DCID
+	} else {
+		destConnID, err = generateConnectionIDForInitial()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	t.mutex.Lock()
@@ -530,7 +542,7 @@ func (t *Transport) listen(conn rawConn) {
 		//nolint:staticcheck // SA1019 ignore this!
 		// TODO: This code is used to ignore wsa errors on Windows.
 		// Since net.Error.Temporary is deprecated as of Go 1.18, we should find a better solution.
-		// See https://github.com/quic-go/quic-go/issues/1737 for details.
+		// See https://github.com/MahamShakir/quic-go-patch/issues/1737 for details.
 		if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
 			t.mutex.Lock()
 			closed := t.closeErr != nil

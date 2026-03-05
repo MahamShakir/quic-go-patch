@@ -3,9 +3,9 @@ package wire
 import (
 	"fmt"
 
-	"github.com/quic-go/quic-go/noninternal/protocol"
-	"github.com/quic-go/quic-go/noninternal/qerr"
-	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/qerr"
+	"github.com/MahamShakir/quic-go-patch/quicvarint"
 )
 
 // A ResetStreamFrame is a RESET_STREAM or RESET_STREAM_AT frame in QUIC

@@ -16,11 +16,11 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/quic-go/quic-go/noninternal/ackhandler"
-	"github.com/quic-go/quic-go/noninternal/mocks"
-	"github.com/quic-go/quic-go/noninternal/monotime"
-	"github.com/quic-go/quic-go/noninternal/protocol"
-	"github.com/quic-go/quic-go/noninternal/wire"
+	"github.com/MahamShakir/quic-go-patch/noninternal/ackhandler"
+	"github.com/MahamShakir/quic-go-patch/noninternal/mocks"
+	"github.com/MahamShakir/quic-go-patch/noninternal/monotime"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/wire"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

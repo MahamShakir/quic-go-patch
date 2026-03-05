@@ -14,19 +14,19 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/quic-go/quic-go/noninternal/ackhandler"
-	"github.com/quic-go/quic-go/noninternal/flowcontrol"
-	"github.com/quic-go/quic-go/noninternal/handshake"
-	"github.com/quic-go/quic-go/noninternal/mocks"
-	mockackhandler "github.com/quic-go/quic-go/noninternal/mocks/ackhandler"
-	"github.com/quic-go/quic-go/noninternal/monotime"
-	"github.com/quic-go/quic-go/noninternal/protocol"
-	"github.com/quic-go/quic-go/noninternal/qerr"
-	"github.com/quic-go/quic-go/noninternal/utils"
-	"github.com/quic-go/quic-go/noninternal/wire"
-	"github.com/quic-go/quic-go/qlog"
-	"github.com/quic-go/quic-go/qlogwriter"
-	"github.com/quic-go/quic-go/testutils/events"
+	"github.com/MahamShakir/quic-go-patch/noninternal/ackhandler"
+	"github.com/MahamShakir/quic-go-patch/noninternal/flowcontrol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/handshake"
+	"github.com/MahamShakir/quic-go-patch/noninternal/mocks"
+	mockackhandler "github.com/MahamShakir/quic-go-patch/noninternal/mocks/ackhandler"
+	"github.com/MahamShakir/quic-go-patch/noninternal/monotime"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/qerr"
+	"github.com/MahamShakir/quic-go-patch/noninternal/utils"
+	"github.com/MahamShakir/quic-go-patch/noninternal/wire"
+	"github.com/MahamShakir/quic-go-patch/qlog"
+	"github.com/MahamShakir/quic-go-patch/qlogwriter"
+	"github.com/MahamShakir/quic-go-patch/testutils/events"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1901,7 +1901,7 @@ func TestConnectionPacketPacing(t *testing.T) {
 }
 
 // When the send queue blocks, we need to reset the pacing timer, otherwise the run loop might busy-loop.
-// See https://github.com/quic-go/quic-go/pull/4943 for more details.
+// See https://github.com/MahamShakir/quic-go-patch/pull/4943 for more details.
 func TestConnectionPacingAndSendQueue(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)

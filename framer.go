@@ -4,13 +4,13 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/quic-go/quic-go/noninternal/ackhandler"
-	"github.com/quic-go/quic-go/noninternal/flowcontrol"
-	"github.com/quic-go/quic-go/noninternal/monotime"
-	"github.com/quic-go/quic-go/noninternal/protocol"
-	"github.com/quic-go/quic-go/noninternal/utils/ringbuffer"
-	"github.com/quic-go/quic-go/noninternal/wire"
-	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/MahamShakir/quic-go-patch/noninternal/ackhandler"
+	"github.com/MahamShakir/quic-go-patch/noninternal/flowcontrol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/monotime"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/utils/ringbuffer"
+	"github.com/MahamShakir/quic-go-patch/noninternal/wire"
+	"github.com/MahamShakir/quic-go-patch/quicvarint"
 )
 
 const (
@@ -213,7 +213,7 @@ func (f *framer) appendControlFrames(
 // This is a hack.
 // It is easier to implement than propagating an error return value in QueueControlFrame.
 // The correct solution would be to queue frames with their respective structs.
-// See https://github.com/quic-go/quic-go/issues/4271 for the queueing of stream-related control frames.
+// See https://github.com/MahamShakir/quic-go-patch/issues/4271 for the queueing of stream-related control frames.
 func (f *framer) QueuedTooManyControlFrames() bool {
 	return f.queuedTooManyControlFrames
 }

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/quic-go/quic-go/noninternal/flowcontrol"
-	"github.com/quic-go/quic-go/noninternal/monotime"
-	"github.com/quic-go/quic-go/noninternal/protocol"
-	"github.com/quic-go/quic-go/noninternal/qerr"
-	"github.com/quic-go/quic-go/noninternal/wire"
+	"github.com/MahamShakir/quic-go-patch/noninternal/flowcontrol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/monotime"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/qerr"
+	"github.com/MahamShakir/quic-go-patch/noninternal/wire"
 )
 
 // StreamLimitReachedError is returned from Conn.OpenStream and Conn.OpenUniStream

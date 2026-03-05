@@ -5,7 +5,7 @@ import (
 	"net"
 	"sync/atomic"
 
-	"github.com/quic-go/quic-go/noninternal/utils"
+	"github.com/MahamShakir/quic-go-patch/noninternal/utils"
 )
 
 // A closedLocalConn is a connection that we closed locally.

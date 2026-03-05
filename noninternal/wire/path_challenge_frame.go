@@ -3,7 +3,7 @@ package wire
 import (
 	"io"
 
-	"github.com/quic-go/quic-go/noninternal/protocol"
+	"github.com/MahamShakir/quic-go-patch/noninternal/protocol"
 )
 
 // A PathChallengeFrame is a PATH_CHALLENGE frame
